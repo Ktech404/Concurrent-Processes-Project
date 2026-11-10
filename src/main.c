@@ -1,43 +1,87 @@
 #include <stdio.h>
-#include <pthread.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include "file_parser.h"
 #include "race_condition.h"
 
-// worker function to print IDs
+int main()
+{
+    int choice;
 
-void *worker_message(void *arg){
-    int id = *(int *)arg; 
-    printf("I am a worker and my ID is %d\n", id);
-    return NULL;
-};
+    while (1) {
+        printf("\n========== MODES/OPTIONG MENU ==========\n");
+        printf("1. cv queue\n");
+        printf("2. sem queue\n");
+        printf("3. race condition\n");
+        printf("4. run trace checker\n");
+        printf("5. quit\n");
+        printf("===============================\n");
+        printf("choose an option/mode: ");
 
-//integer values of the worker IDs
-int ID1 = 0;
-int ID2 = 1;
+        // read the selection
+        if (scanf("%d", &choice) != 1) {
+            while (getchar() != '\n') {
+            }
+            printf("Invalid choice. Please enter a number from 1 to 5.\n");
+            continue;
+        }
 
-int main(){
+        //handles the selection
+        switch (choice) {
+            case 1: {
+                Config config;
 
-    /* just commenting this out for now
-    Config config;
+                printf("\nStarting CV Queue Mode...\n");
 
-    //load and validate configuration
-    if (!read_config("config/config_vals.txt", &config)) {
-        printf("Program cannot start due to invalid configuration.\n");
-        return 1;
+                if (!read_config("config/config_vals.txt", &config)) {
+                    printf("Unable to start CV mode. Check configuration.\n");
+                    break;
+                }
+
+                printf("Configuration successfully loaded.\n");
+
+                // TODO cv queue stuff will go here eventually
+                printf("CV mode is not implemented yet.\n");
+                break;
+            }
+
+            case 2: {
+                Config config;
+
+                printf("\nStarting SEM Queue Mode...\n");
+
+                if (!read_config("config/config_vals.txt", &config)) {
+                    printf("Unable to start SEM mode. Check configuration.\n");
+                    break;
+                }
+
+                printf("Configuration successfully loaded.\n");
+
+                // TODO !!sem queue implementation here
+                printf("SEM mode is not implemented yet.\n");
+                break;
+            }
+
+            case 3:
+                printf("\nStarting Race Condition Mode...\n");
+                run_race_condition();
+                break;
+
+            case 4:
+                printf("\nStarting Trace Checker...\n");
+
+                // TODO trace checker implementation will go here
+                printf("Trace checker is not implemented yet.\n");
+                break;
+
+            case 5:
+                printf("Exiting program. Goodbye!\n");
+                return 0;
+
+            default:
+                printf("Invalid selection. Please choose between 1 and 5.\n");
+                break;
+        }
     }
-    printf("Configuration successfully loaded.\n");
-
-    //starting workers
-    pthread_t worker1, worker2;
-
-    pthread_create(&worker1, NULL, worker_message, &ID1);
-    pthread_create(&worker2, NULL, worker_message, &ID2);
-
-    pthread_join(worker1, NULL);
-    pthread_join(worker2, NULL);
-
-    printf("Both workers have successfully finished.\n");
-    */
-
-    run_race_condition();
+    return 0;
 }
