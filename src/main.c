@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "file_parser.h"
+#include "race_condition.h"
 
 // worker function to print IDs
 
@@ -16,6 +17,17 @@ int ID2 = 1;
 
 int main(){
 
+    /* just commenting this out for now
+    Config config;
+
+    //load and validate configuration
+    if (!read_config("config/config_vals.txt", &config)) {
+        printf("Program cannot start due to invalid configuration.\n");
+        return 1;
+    }
+    printf("Configuration successfully loaded.\n");
+
+    //starting workers
     pthread_t worker1, worker2;
 
     pthread_create(&worker1, NULL, worker_message, &ID1);
@@ -25,24 +37,7 @@ int main(){
     pthread_join(worker2, NULL);
 
     printf("Both workers have successfully finished.\n");
-    
+    */
 
-    //values loading
-    Config config;
-
-    if (!read_config("config/config_vals.txt", &config)) {
-        printf("Configuration loading failed.\n");
-        return 1;
-    }
-
-    printf("\nConfiguration loaded:\n");
-    printf("Seed: %d\n", config.seed);
-    printf("Jobs: %d\n", config.jobs);
-    printf("Producers: %d\n", config.producers);
-    printf("Consumers: %d\n", config.consumers);
-    printf("Capacity: %d\n", config.capacity);
-    printf("Delay: %d ms\n", config.delay_ms);
-
-    return 0;
-
+    run_race_condition();
 }
