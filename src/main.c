@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include "file_parser.h"
 #include "race_condition.h"
+#include "cv_mode.h"
 
 int main()
 {
@@ -37,11 +38,10 @@ int main()
                     printf("Unable to start CV mode. Check configuration.\n");
                     break;
                 }
-
                 printf("Configuration successfully loaded.\n");
 
                 // TODO cv queue stuff will go here eventually
-                printf("CV mode is not implemented yet.\n");
+                run_cv_mode(&config);
                 break;
             }
 
@@ -75,7 +75,7 @@ int main()
                 break;
 
             case 5:
-                printf("Exiting program. Goodbye!\n");
+                printf("Quitting program...bye!\n");
                 return 0;
 
             default:

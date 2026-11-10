@@ -1,0 +1,260 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include "cv_mode.h"
+#include <unistd.h>
+
+
+//job, queue, and the two worker types used in this porject
+//represents one job moving through the queue
+typedef struct {
+    int id;
+    int payload;
+    int units;
+    int result;
+} Job;
+
+typedef struct {
+    Job *items;
+    int front;
+    int rear;
+    int occupancy;
+    int capacity;
+
+    pthread_mutex_t mutex;
+    pthread_cond_t not_empty;
+    pthread_cond_t not_full;
+
+    int produced;
+    int dequeued;
+    int completed;
+    int result_sum;
+    int max_occupancy;
+} Queue;
+
+typedef struct {
+    Queue *queue;
+    const Config *config;
+    int producer_id;
+} ProducerArgs;
+
+typedef struct {
+    Queue *queue;
+    const Config *config;
+    int consumer_id;
+} ConsumerArgs;
+
+
+
+// this defines producer put function for adding jobs to queue
+void put(Queue *queue, Job job){
+    pthread_mutex_lock(&queue->mutex);
+
+    // producer waits in while loop while the queue is full
+    while (queue->occupancy == queue->capacity) {
+        //waiting for the queue to have space and temporarily release mutex.
+        pthread_cond_wait(&queue->not_full, &queue->mutex);
+    }
+
+    // adding job to back of the queue
+    queue->items[queue->rear] = job;
+    // wrap pointer back to start after adding job
+    queue->rear = (queue->rear + 1) % queue->capacity;
+    queue->occupancy++;
+
+    if (job.id > 0) {
+        queue->produced++;
+    }
+    // keep track of max occupancy for the trace
+    if (queue->occupancy > queue->max_occupancy) {
+        queue->max_occupancy = queue->occupancy;
+    }
+    
+    //signal not_empty condition, THEN unlock
+    pthread_cond_signal(&queue->not_empty);
+    pthread_mutex_unlock(&queue->mutex);
+}
+
+
+
+// this defines the consumer get function for getting jobs from the queue.
+Job get(Queue *queue){
+    pthread_mutex_lock(&queue->mutex);
+    
+    //consumer waits in a while loop while the queue is empty
+    while (queue->occupancy == 0) {
+        //waiting for signal
+        pthread_cond_wait(&queue->not_empty, &queue->mutex);
+    }
+
+    //removing job from front of the queue
+    Job job = queue->items[queue->front];
+    queue->front = (queue->front + 1) % queue->capacity;
+    queue->occupancy--;
+
+    // jobs ids start at 1, 0 represents STOP so we exclude it
+    if (job.id > 0) {
+        queue->dequeued++;
+    }
+     
+    //signals not_full, THEN unlocks
+    pthread_cond_signal(&queue->not_full);
+    pthread_mutex_unlock(&queue->mutex);
+
+    return job;
+}
+
+
+
+//producer worker function!!
+void *producer_worker(void *arg){
+    ProducerArgs *args = (ProducerArgs *)arg;
+
+    int producer_id = args->producer_id;
+    int producers = args->config->producers;
+    int jobs = args->config->jobs;
+    int seed = args->config->seed;
+
+    //each producer handles every p+1+producers job - based on the info in the job defnition
+    for (int j = producer_id + 1; j <= jobs; j += producers) {
+        Job job;
+
+        // generate the job's values
+        job.id = j;
+        job.payload = (37 * j + 11 * seed) % 1000;
+        job.units = 1 + ((j + seed) % 5);
+        job.result = 0;
+
+        // insert the job into the shared queue
+        put(args->queue, job);
+    }
+
+    return NULL;
+}
+
+
+
+// consumer worker function!!
+void *consumer_worker(void *arg){
+    ConsumerArgs *args = (ConsumerArgs *)arg;
+    int delay_ms = args->config->delay_ms;
+
+    while (1) {
+        // retrieve the next job (one at a time)
+        Job job = get(args->queue);
+
+        // stop when a STOP record (job id 0)is received
+        if (job.id <0) {
+            break;
+        }
+
+        // representative processing delay
+        if (delay_ms > 0) {
+            sleep(job.units * delay_ms * 1000);
+        }
+
+        //calculate the job result
+        job.result = job.payload * job.units + job.id;
+
+        // update completed job and sum stats
+        pthread_mutex_lock(&args->queue->mutex);
+
+        args->queue->completed++;
+        args->queue->result_sum += job.result;
+
+        pthread_mutex_unlock(&args->queue->mutex);
+    }
+
+    return NULL;
+}
+
+
+//producer+put and consumer+get all together in queue
+void run_cv_mode(const Config *config){
+    Queue queue;
+
+    // initialize the queue
+    queue.items = malloc(config->capacity * sizeof(Job));
+    if (queue.items == NULL) {
+        printf("Unable to allocate queue memory.\n");
+        return;
+    }
+
+    queue.front = 0;
+    queue.rear = 0;
+    queue.occupancy = 0;
+    queue.capacity = config->capacity;
+
+    // initialize statistics
+    queue.produced = 0;
+    queue.dequeued = 0;
+    queue.completed = 0;
+    queue.result_sum = 0;
+    queue.max_occupancy = 0;
+
+    // initialize synchronization tools
+    pthread_mutex_init(&queue.mutex, NULL);
+    pthread_cond_init(&queue.not_empty, NULL);
+    pthread_cond_init(&queue.not_full, NULL);
+
+    // create thread and argument arrays, max 8 because of range
+    pthread_t producers[8];
+    pthread_t consumers[8];
+
+    ProducerArgs producer_args[8];
+    ConsumerArgs consumer_args[8];
+
+    // start consumer threads and set args
+    for (int i = 0; i < config->consumers; i++) {
+        consumer_args[i].queue = &queue;
+        consumer_args[i].config = config;
+        consumer_args[i].consumer_id = i;
+
+        pthread_create(&consumers[i], NULL, consumer_worker, &consumer_args[i]);
+    }
+
+    // start producer threads
+    for (int i = 0; i < config->producers; i++) {
+        producer_args[i].queue = &queue;
+        producer_args[i].config = config;
+        producer_args[i].producer_id = i;
+
+        pthread_create(&producers[i], NULL, producer_worker, &producer_args[i]);
+    }
+
+    // wait for all producers to finish
+    // this is so we don't insert STOP records while producers are running
+    for (int i = 0; i < config->producers; i++) {
+        pthread_join(producers[i], NULL);
+    }
+
+    // create one unique STOP record for each consumer
+    // using negative ID cause real job ids >1
+    for (int i = 0; i < config->consumers; i++) {
+        Job stop_job = {-1 - i, 0, 0, 0};
+        put(&queue, stop_job);
+    }
+
+    // wait for all consumers to finish
+    for (int i = 0; i < config->consumers; i++) {
+        pthread_join(consumers[i], NULL);
+    }
+
+    // print the final statistics to scroll back for now
+    // TODO CSV printing
+    printf("\n========== CV MODE RESULTS ==========\n");
+    printf("Jobs: %d\n", config->jobs);
+    printf("Produced: %d\n", queue.produced);
+    printf("Dequeued: %d\n", queue.dequeued);
+    printf("Completed: %d\n", queue.completed);
+    printf("Result sum: %d\n", queue.result_sum);
+    printf("Maximum occupancy: %d\n", queue.max_occupancy);
+    printf("=====================================\n");
+
+    // clean hygience for synchronization tools and memory
+    pthread_mutex_destroy(&queue.mutex);
+    pthread_cond_destroy(&queue.not_empty);
+    pthread_cond_destroy(&queue.not_full);
+
+    free(queue.items);
+}
