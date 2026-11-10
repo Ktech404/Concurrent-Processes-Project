@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include "cv_mode.h"
 #include <unistd.h>
+#include <trace.h>
 
 
 //job, queue, and the two worker types used in this porject
@@ -30,6 +31,10 @@ typedef struct {
     int completed;
     int result_sum;
     int max_occupancy;
+
+    TraceEvent *events;
+    int event_count;
+    int event_capacity;
 } Queue;
 
 typedef struct {
@@ -47,7 +52,7 @@ typedef struct {
 
 
 // this defines producer put function for adding jobs to queue
-void put(Queue *queue, Job job){
+void put(Queue *queue, Job job, const char *actor){
     pthread_mutex_lock(&queue->mutex);
 
     // producer waits in while loop while the queue is full
@@ -69,6 +74,15 @@ void put(Queue *queue, Job job){
     if (queue->occupancy > queue->max_occupancy) {
         queue->max_occupancy = queue->occupancy;
     }
+
+    // record the insertion
+    if (job.id > 0) {
+        record_event(queue->events, &queue->event_count,
+                    actor, "ENQ", job.id, queue->occupancy, 0);
+    } else {
+        record_event(queue->events, &queue->event_count,
+                    actor, "STOP_ENQ", job.id, queue->occupancy, 0);
+    }
     
     //signal not_empty condition, THEN unlock
     pthread_cond_signal(&queue->not_empty);
@@ -78,7 +92,7 @@ void put(Queue *queue, Job job){
 
 
 // this defines the consumer get function for getting jobs from the queue.
-Job get(Queue *queue){
+Job get(Queue *queue, const char *actor){
     pthread_mutex_lock(&queue->mutex);
     
     //consumer waits in a while loop while the queue is empty
@@ -97,6 +111,15 @@ Job get(Queue *queue){
         queue->dequeued++;
     }
      
+   if (job.id > 0) {
+        queue->dequeued++;
+        record_event(queue->events, &queue->event_count,
+                     actor, "DEQ", job.id, queue->occupancy, 0);
+    } else {
+        record_event(queue->events, &queue->event_count,
+                     actor, "STOP_GET", job.id, queue->occupancy, 0);
+    }
+
     //signals not_full, THEN unlocks
     pthread_cond_signal(&queue->not_full);
     pthread_mutex_unlock(&queue->mutex);
@@ -114,6 +137,9 @@ void *producer_worker(void *arg){
     int producers = args->config->producers;
     int jobs = args->config->jobs;
     int seed = args->config->seed;
+    char actor[16];
+    
+    snprintf(actor, sizeof(actor), "P%d", producer_id);
 
     //each producer handles every p+1+producers job - based on the info in the job defnition
     for (int j = producer_id + 1; j <= jobs; j += producers) {
@@ -126,7 +152,7 @@ void *producer_worker(void *arg){
         job.result = 0;
 
         // insert the job into the shared queue
-        put(args->queue, job);
+        put(args->queue, job, actor);
     }
 
     return NULL;
@@ -138,10 +164,12 @@ void *producer_worker(void *arg){
 void *consumer_worker(void *arg){
     ConsumerArgs *args = (ConsumerArgs *)arg;
     int delay_ms = args->config->delay_ms;
+    char actor[16];
+    snprintf(actor, sizeof(actor), "C%d", args->consumer_id);
 
     while (1) {
         // retrieve the next job (one at a time)
-        Job job = get(args->queue);
+        Job job = get(args->queue, actor);
 
         // stop when a STOP record (job id 0)is received
         if (job.id <0) {
@@ -232,7 +260,7 @@ void run_cv_mode(const Config *config){
     // using negative ID cause real job ids >1
     for (int i = 0; i < config->consumers; i++) {
         Job stop_job = {-1 - i, 0, 0, 0};
-        put(&queue, stop_job);
+        put(&queue, stop_job, "MAIN");
     }
 
     // wait for all consumers to finish
