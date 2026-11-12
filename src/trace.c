@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "trace.h"
 
 void record_event(TraceEvent events[], int *event_count, const char *actor,
@@ -40,8 +41,7 @@ void write_trace(const char *filename, TraceEvent events[], int event_count)
                 events[i].job_id,
                 events[i].occupancy);
 
-        if (events[i].event[0] == 'D' &&
-            events[i].event[1] == 'O') {
+        if (strcmp(events[i].event, "DONE") == 0) {
             fprintf(file, "%d\n", events[i].result);
         } else {
             fprintf(file, "-\n");

@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include "cv_mode.h"
 #include <unistd.h>
-#include <trace.h>
+#include "trace.h"
 
 
 //job, queue, and the two worker types used in this porject
@@ -106,7 +106,7 @@ Job get(Queue *queue, const char *actor){
     queue->front = (queue->front + 1) % queue->capacity;
     queue->occupancy--;
 
-    // jobs ids start at 1, 0 represents STOP so we exclude it
+    // jobs ids start at 1, less than one represents STOP so we exclude it
     if (job.id > 0) {
         queue->dequeued++;
     }
@@ -171,7 +171,7 @@ void *consumer_worker(void *arg){
         // retrieve the next job (one at a time)
         Job job = get(args->queue, actor);
 
-        // stop when a STOP record (job id 0)is received
+        // stop when a STOP record (job id negative)is received
         if (job.id <0) {
             break;
         }
@@ -189,6 +189,10 @@ void *consumer_worker(void *arg){
 
         args->queue->completed++;
         args->queue->result_sum += job.result;
+
+        record_event(args->queue->events, &args->queue->event_count,
+             actor, "DONE", job.id, args->queue->occupancy, job.result);
+
 
         pthread_mutex_unlock(&args->queue->mutex);
     }
@@ -208,6 +212,17 @@ void run_cv_mode(const Config *config){
         return;
     }
 
+    //init the trace events array
+    queue.event_capacity = 3 * config->jobs + 2 * config->consumers;
+    queue.events = malloc(queue.event_capacity * sizeof(TraceEvent));
+
+    if (queue.events == NULL) {
+        printf("Unable to allocate memory for the event log.\n");
+        free(queue.items);
+        return;
+    }
+
+    queue.event_count = 0;
     queue.front = 0;
     queue.rear = 0;
     queue.occupancy = 0;
@@ -268,6 +283,11 @@ void run_cv_mode(const Config *config){
         pthread_join(consumers[i], NULL);
     }
 
+    
+    // save the completed event log
+    write_trace("trace/events.csv", queue.events, queue.event_count);
+
+    
     // print the final statistics to scroll back for now
     // TODO CSV printing
     printf("\n========== CV MODE RESULTS ==========\n");
@@ -283,6 +303,7 @@ void run_cv_mode(const Config *config){
     pthread_mutex_destroy(&queue.mutex);
     pthread_cond_destroy(&queue.not_empty);
     pthread_cond_destroy(&queue.not_full);
+    free(queue.events);
 
     free(queue.items);
 }

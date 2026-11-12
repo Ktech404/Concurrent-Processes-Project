@@ -54,12 +54,12 @@ void *repaired_worker(void *arg){
     pthread_mutex_lock(&counter_mutex);
 
     int private_value = atomic_load_explicit(&counter, memory_order_relaxed);
-    print_event(id, "READ private counter =", private_value);
+    printf("Event %d: READ private counter = %d\n", id, private_value);
 
     private_value++;
 
     atomic_store_explicit(&counter, private_value, memory_order_relaxed);
-    print_event(id, "WRITE private counter =", private_value);
+    printf("Event %d: WRITE private counter = %d\n", id, private_value);
    
     //release the lock
     pthread_mutex_unlock(&counter_mutex);

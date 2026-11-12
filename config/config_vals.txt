@@ -2,7 +2,7 @@
 
 seed=7
 jobs=6
-producers=1
-consumers=1
-capacity=2
+producers=2
+consumers=2
+capacity=1
 delay_ms=0

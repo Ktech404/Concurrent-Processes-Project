@@ -40,7 +40,6 @@ int main()
                 }
                 printf("Configuration successfully loaded.\n");
 
-                // TODO cv queue stuff will go here eventually
                 run_cv_mode(&config);
                 break;
             }
