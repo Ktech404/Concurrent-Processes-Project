@@ -10,7 +10,6 @@ const char *config_file = "config/public_case.txt";
 const char *trace_file = "traces/cv_public_case_events.csv";
 
 
-
 //helper function to separate col vals
 int split_fields(char *line, char *fields[]) {
     int count = 0;
@@ -381,7 +380,7 @@ int validate_queue_event(char *fields[], int queue[], int *front,
 
 
 // validate shutdown events and track the final result sum
-int validate_shutdown_event(char *fields[], Config *config,
+int validate_shutdown_event(char *fields[],
                             int stop_enq[], int stop_get[],
                             int consumer_stop[], int *first_stop,
                             int *result_sum, int event_number) {
@@ -503,6 +502,14 @@ int run_checker(void) {
     int front = 0;
     int queue_count = 0;
 
+    // track STOP creation and consumption
+    int stop_enq[9] = {0};
+    int stop_get[9] = {0};
+    int consumer_stop[8] = {0};
+
+    int first_stop = 0;
+    int result_sum = 0;
+
     if (queue == NULL) {
         printf("ERROR: could not allocate reconstructed queue.\n");
         free(enq_count);
@@ -589,6 +596,17 @@ int run_checker(void) {
             return 1;
         }
 
+        // validate shutdown events and result sum
+        if (!validate_shutdown_event(fields, stop_enq,
+                                    stop_get, consumer_stop, &first_stop,
+                                    &result_sum, event_count)) {
+            free(enq_count);
+            free(deq_count);
+            free(done_count);
+            free(queue);
+            fclose(trace);
+            return 1;
+        }
 
         // get the job ID
         int job_id;
@@ -668,6 +686,53 @@ int run_checker(void) {
             fclose(trace);
             return 1;
         }
+    }
+
+    for (int i = 0; i < config.consumers; i++) {
+        if (consumer_stop[i] != 1) {
+            printf("FAIL: EOF: consumer C%d did not receive exactly one STOP.\n",
+                i);
+            free(enq_count);
+            free(deq_count);
+            free(done_count);
+            free(queue);
+            fclose(trace);
+            return 1;
+        }
+
+        if (consumer_state[i] != STOPPED) {
+            printf("FAIL: EOF: consumer C%d did not stop.\n", i);
+            free(enq_count);
+            free(deq_count);
+            free(done_count);
+            free(queue);
+            fclose(trace);
+            return 1;
+        }
+    }
+
+    // calculate the expected result sum
+    int expected_result_sum = 0;
+
+    for (int i = 1; i <= config.jobs; i++) {
+        int payload = (37 * i + 11 * config.seed) % 1000;
+        int units = 1 + ((i + config.seed) % 5);
+
+        expected_result_sum += payload * units + i;
+    }
+
+    // compare actual and expected result sums
+    if (result_sum != expected_result_sum) {
+        printf("FAIL: EOF: incorrect result sum. "
+            "Expected %d, found %d.\n",
+            expected_result_sum, result_sum);
+
+        free(enq_count);
+        free(deq_count);
+        free(done_count);
+        free(queue);
+        fclose(trace);
+        return 1;
     }
     
     // verify queue is empty at the end of the trace
