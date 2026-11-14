@@ -5,6 +5,7 @@
 #include "race_condition.h"
 #include "cv_mode.h"
 #include "sem_mode.h"
+int run_checker(void);
 
 int main()
 {
@@ -69,8 +70,7 @@ int main()
             case 4:
                 printf("\nStarting Trace Checker...\n");
 
-                // TODO trace checker implementation will go here
-                printf("Trace checker is not implemented yet.\n");
+                run_checker();
                 break;
 
             case 5:
