@@ -4,6 +4,7 @@
 #include "cv_mode.h"
 #include <unistd.h>
 #include "trace.h"
+#include <time.h>
 
 
 //job, queue, and the two worker types used in this porject
@@ -56,6 +57,7 @@ void put(Queue *queue, Job job, const char *actor){
     pthread_mutex_lock(&queue->mutex);
 
     // producer waits in while loop while the queue is full
+    // producer predicate is occupancy<capacity
     while (queue->occupancy == queue->capacity) {
         //waiting for the queue to have space and temporarily release mutex.
         pthread_cond_wait(&queue->not_full, &queue->mutex);
@@ -95,7 +97,8 @@ void put(Queue *queue, Job job, const char *actor){
 Job get(Queue *queue, const char *actor){
     pthread_mutex_lock(&queue->mutex);
     
-    //consumer waits in a while loop while the queue is empty
+    // consumer waits in a while loop while the queue is empty
+    // consumer wait predicate is occupancy > 0
     while (queue->occupancy == 0) {
         //waiting for signal
         pthread_cond_wait(&queue->not_empty, &queue->mutex);
@@ -107,10 +110,6 @@ Job get(Queue *queue, const char *actor){
     queue->occupancy--;
 
     // jobs ids start at 1, less than one represents STOP so we exclude it
-    if (job.id > 0) {
-        queue->dequeued++;
-    }
-     
    if (job.id > 0) {
         queue->dequeued++;
         record_event(queue->events, &queue->event_count,
@@ -178,7 +177,7 @@ void *consumer_worker(void *arg){
 
         // representative processing delay
         if (delay_ms > 0) {
-            sleep(job.units * delay_ms * 1000);
+            sleep(job.units * delay_ms * 1);
         }
 
         //calculate the job result
@@ -247,6 +246,12 @@ void run_cv_mode(const Config *config){
     ProducerArgs producer_args[8];
     ConsumerArgs consumer_args[8];
 
+
+    // starting the timer for printed info
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+
     // start consumer threads and set args
     for (int i = 0; i < config->consumers; i++) {
         consumer_args[i].queue = &queue;
@@ -283,13 +288,17 @@ void run_cv_mode(const Config *config){
         pthread_join(consumers[i], NULL);
     }
 
+    //Stop timer calculate elapsed_ms time
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double elapsed_ms = (end.tv_sec - start.tv_sec) * 1000.0;
+    elapsed_ms += (end.tv_nsec - start.tv_nsec) / 1000000.0;
+
     
     // save the completed event log
     write_trace("trace/events.csv", queue.events, queue.event_count);
 
     
     // print the final statistics to scroll back for now
-    // TODO CSV printing
     printf("\n========== CV MODE RESULTS ==========\n");
     printf("Jobs: %d\n", config->jobs);
     printf("Produced: %d\n", queue.produced);
@@ -297,6 +306,7 @@ void run_cv_mode(const Config *config){
     printf("Completed: %d\n", queue.completed);
     printf("Result sum: %d\n", queue.result_sum);
     printf("Maximum occupancy: %d\n", queue.max_occupancy);
+    printf("Elapsed time: %.2f ms\n", elapsed_ms);
     printf("=====================================\n");
 
     // clean hygience for synchronization tools and memory

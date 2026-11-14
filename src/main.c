@@ -4,6 +4,7 @@
 #include "file_parser.h"
 #include "race_condition.h"
 #include "cv_mode.h"
+#include "sem_mode.h"
 
 int main()
 {
@@ -56,8 +57,7 @@ int main()
 
                 printf("Configuration successfully loaded.\n");
 
-                // TODO !!sem queue implementation here
-                printf("SEM mode is not implemented yet.\n");
+                run_sem_mode(&config);
                 break;
             }
 
