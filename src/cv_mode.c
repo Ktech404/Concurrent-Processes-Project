@@ -295,7 +295,7 @@ void run_cv_mode(const Config *config){
 
     
     // save the completed event log
-    write_trace("trace/public_case_events.csv", queue.events, queue.event_count);
+    write_trace("trace/cv_public_case_events.csv", queue.events, queue.event_count);
 
     
     // print the final statistics to scroll back for now
