@@ -174,7 +174,7 @@ void *sem_consumer_worker(void *arg){
 
         // representative processing delay
         if (delay_ms > 0) {
-            sleep(job.units * delay_ms * 1000);
+            sleep(job.units * delay_ms * 1);
         }
 
         //calculate the job result
@@ -295,7 +295,7 @@ void run_sem_mode(const Config *config){
 
     
     // save the completed event log
-    write_trace("trace/sem_events.csv", queue.events, queue.event_count);
+    write_trace("trace/sem_public_case_events.csv", queue.events, queue.event_count);
 
     
     // print the final statistics to scroll back for now

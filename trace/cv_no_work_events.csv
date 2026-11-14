@@ -1,0 +1,9 @@
+seq,actor,event,job_id,occupancy,result
+1,MAIN,STOP_ENQ,-1,1,-
+2,C0,STOP_GET,-1,0,-
+3,MAIN,STOP_ENQ,-2,1,-
+4,C2,STOP_GET,-2,0,-
+5,MAIN,STOP_ENQ,-3,1,-
+6,C1,STOP_GET,-3,0,-
+7,MAIN,STOP_ENQ,-4,1,-
+8,C3,STOP_GET,-4,0,-

@@ -35,7 +35,7 @@ int main()
 
                 printf("\nStarting CV Queue Mode...\n");
 
-                if (!read_config("config/config_vals.txt", &config)) {
+                if (!read_config("config/public_case.txt", &config)) {
                     printf("Unable to start CV mode. Check configuration.\n");
                     break;
                 }
@@ -50,7 +50,7 @@ int main()
 
                 printf("\nStarting SEM Queue Mode...\n");
 
-                if (!read_config("config/config_vals.txt", &config)) {
+                if (!read_config("config/public_case.txt", &config)) {
                     printf("Unable to start SEM mode. Check configuration.\n");
                     break;
                 }

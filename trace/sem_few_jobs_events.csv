@@ -1,0 +1,17 @@
+seq,actor,event,job_id,occupancy,result
+1,P0,ENQ,1,1,-
+2,C0,DEQ,1,0,-
+3,C0,DONE,1,0,457
+4,P1,ENQ,2,1,-
+5,C1,DEQ,2,0,-
+6,C1,DONE,2,0,757
+7,MAIN,STOP_ENQ,-1,1,-
+8,C2,STOP_GET,-1,0,-
+9,MAIN,STOP_ENQ,-2,1,-
+10,C3,STOP_GET,-2,0,-
+11,MAIN,STOP_ENQ,-3,1,-
+12,C4,STOP_GET,-3,0,-
+13,MAIN,STOP_ENQ,-4,1,-
+14,C0,STOP_GET,-4,0,-
+15,MAIN,STOP_ENQ,-5,1,-
+16,C1,STOP_GET,-5,0,-

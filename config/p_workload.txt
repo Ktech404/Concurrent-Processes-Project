@@ -1,0 +1,6 @@
+seed=7
+jobs=120
+producers=2
+consumers=2
+capacity=1
+delay_ms=0
