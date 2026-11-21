@@ -5,6 +5,7 @@
 #include "race_condition.h"
 #include "cv_mode.h"
 #include "sem_mode.h"
+#include "../checker/checker.c"
 int run_checker(void);
 
 int main()
@@ -12,7 +13,7 @@ int main()
     int choice;
 
     while (1) {
-        printf("\n========== MODES/OPTIONG MENU ==========\n");
+        printf("\n========== MODES/OPTION MENU ==========\n");
         printf("1. cv queue\n");
         printf("2. sem queue\n");
         printf("3. race condition\n");

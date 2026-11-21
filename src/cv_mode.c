@@ -227,7 +227,7 @@ void run_cv_mode(const Config *config){
     queue.occupancy = 0;
     queue.capacity = config->capacity;
 
-    // initialize statistics
+    //initialize statistics
     queue.produced = 0;
     queue.dequeued = 0;
     queue.completed = 0;
@@ -271,7 +271,7 @@ void run_cv_mode(const Config *config){
     }
 
     // wait for all producers to finish
-    // this is so we don't insert STOP records while producers are running
+    //this is so we don't insert STOP records while producers are running
     for (int i = 0; i < config->producers; i++) {
         pthread_join(producers[i], NULL);
     }
